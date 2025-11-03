@@ -64,7 +64,8 @@ resource "aws_internet_gateway" "main_igw" {
 
 # --- EIP ---
 resource "aws_eip" "nat_eip" {
-  vpc = true
+  domain = "vpc"
+  
   tags = {
     Name = "nat-eip-LS"
   }
@@ -141,90 +142,110 @@ resource "aws_route_table_association" "private_subnet_db_assoc_az1" {
 # --- Security groups ---
 # SG ALB
 resource "aws_security_group" "sg_alb" {
-    name = "sg-albg"
-    vpc_id = aws_vpc.main.id
+  name = "secg-albg"
+  vpc_id = aws_vpc.main.id
+  
+  ingress {
+    description = "Allow HTTP"
+    from_port = 80
+    to_port = 80
+    protocol = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
 
-    ingress {
-        description = "Allow HTTP"
-        from_port = 80
-        to_port = 80
-        protocol = "tcp"
-        cidr_blocks = ["0.0.0.0/0"]
-    }
-
-    egress {
-        from_port = 0
-        to_port = 0
-        protocol = "-1"
-        cidr_blocks = ["0.0.0.0/0"]
-    }
+  egress {
+    from_port = 0
+    to_port = 0
+    protocol = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
 }
 # SG VOTE
 resource "aws_security_group" "sg_vote" {
-    name = "sg-vote"
-    vpc_id = aws_vpc.main.id
+  name = "secg-vote"
+  vpc_id = aws_vpc.main.id
 
-    ingress {
-        description = "Allow access from ALB Sg"
-        from_port = 8080
-        to_port = 8080
-        protocol = "tcp"
-        security_groups = [aws_security_group.sg_alb.id]
-    }
+  ingress {
+    description = "Allow access from ALB Sg"
+    from_port = 8080
+    to_port = 8080
+    protocol = "tcp"
+    security_groups = [aws_security_group.sg_alb.id]
+  }
 
-    ingress {
+  ingress {
     description = "Allow ssh from Bastion"
     from_port = 22
     to_port = 22
     protocol = "tcp"
     security_groups = [aws_security_group.sg_bastion.id]
+  }
+
+  egress {
+    from_port = 0
+    to_port   = 0
+    protocol  = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 }
 # SG RESULT
 resource "aws_security_group" "sg_result" {
-    name = "sg-result"
-    vpc_id = aws_vpc.main.id
+  name = "secg-result"
+  vpc_id = aws_vpc.main.id
 
-    ingress {
-        description = "Allow access from ALB Sg"
-        from_port = 8081
-        to_port = 8081
-        protocol = "tcp"
-        security_groups = [aws_security_group.sg_alb.id]
-    }
+  ingress {
+    description = "Allow access from ALB Sg"
+    from_port = 8081
+    to_port = 8081
+    protocol = "tcp"
+    security_groups = [aws_security_group.sg_alb.id]
+  }
 
-    ingress {
+  ingress {
     description = "Allow ssh from Bastion"
     from_port = 22
     to_port = 22
     protocol = "tcp"
     security_groups = [aws_security_group.sg_bastion.id]
+  }
+
+  egress {
+    from_port = 0
+    to_port   = 0
+    protocol  = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 }
 # SG WORKER
 resource "aws_security_group" "sg_worker" {
-    name = "sg-worker"
-    vpc_id = aws_vpc.main.id
+  name = "secg-worker"
+  vpc_id = aws_vpc.main.id
 
-    ingress {
-        description = "Allow access from ALB Sg"
-        from_port = 8081
-        to_port = 8081
-        protocol = "tcp"
-        security_groups = [aws_security_group.sg_alb.id]
-    }
+  ingress {
+      description = "Allow access from ALB Sg"
+      from_port = 8081
+      to_port = 8081
+      protocol = "tcp"
+      security_groups = [aws_security_group.sg_alb.id]
+  }
 
-    ingress {
+  ingress {
     description = "Allow ssh from Bastion"
     from_port = 22
     to_port = 22
     protocol = "tcp"
     security_groups = [aws_security_group.sg_bastion.id]
   }
+  egress {
+    from_port = 0
+    to_port   = 0
+    protocol  = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
 }
 # SG REDIS
 resource "aws_security_group" "sg_redis" {
-  name   = "sg-redis"
+  name   = "secg-redis"
   vpc_id = aws_vpc.main.id
 
   ingress {
@@ -247,7 +268,7 @@ resource "aws_security_group" "sg_redis" {
 }
 # SG DB
 resource "aws_security_group" "sg_db" {
-  name   = "sg-db"
+  name   = "secg-db"
   vpc_id = aws_vpc.main.id
 
   ingress {
@@ -270,81 +291,107 @@ resource "aws_security_group" "sg_db" {
 }
 # SG BASTION
 resource "aws_security_group" "sg_bastion" {
-  name   = "sg-bastion"
+  name   = "secg-bastion"
   vpc_id = aws_vpc.main.id
 
   ingress {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["YOUR_IP/32"]
+    cidr_blocks = [var.my_ip]
   }
 }
 
+# --- Load Balancer ---
+resource "aws_lb" "alb" {
+  name = "alb-ls"
+  internal = false
+  load_balancer_type = "application"
+  subnets = [aws_subnet.public_subnet.id] # here also put other subnets when multi az
+  security_groups = [aws_security_group.sg_alb.id]
 
+  tags = {
+    Name = "alb-LS"
+  }
+}
 
+# --- Load Balancer Target Group ---
+resource "aws_lb_target_group" "tg_vote" {
+  name     = "tg-vote"
+  port     = 8080
+  protocol = "HTTP"
+  vpc_id   = aws_vpc.main.id
+  health_check {
+    path = "/health"
+  }
+}
 
+resource "aws_lb_target_group" "tg_result" {
+  name     = "tg-vote"
+  port     = 8081
+  protocol = "HTTP"
+  vpc_id   = aws_vpc.main.id
+  health_check {
+    path = "/health"
+  }
+}
 
+# --- Load Balancer Listener ---
+resource "aws_lb_listener" "http" {
+  load_balancer_arn = aws_lb.alb.arn
+  port = "80"
+  protocol = "HTTP"
 
+  default_action {
+    type = "fixed-response"
+    fixed_response {
+      content_type = "text/plain"
+      message_body = "no matching rule"
+      status_code = "404"
+    }
+  }
+}
 
+# --- Load Balancer Listener Rules ---
+resource "aws_lb_listener_rule" "vote_rule" {
+  listener_arn = aws_lb_listener.http.arn
+  priority = 20
 
+  action {
+    type = "forward"
+    target_group_arn = aws_lb_target_group.tg_vote.arn
+  }
 
+  condition {
+    path_pattern {
+      values = ["/vote*"]
+    }
+  }
+}
 
+resource "aws_lb_listener_rule" "result_rule" {
+  listener_arn = aws_lb_listener.http.arn
+  priority = 40
+
+  action {
+    type = "forward"
+    target_group_arn = aws_lb_target_group.tg_result.arn
+  }
+
+  condition {
+    path_pattern {
+      values = ["/result*"]
+    }
+  }
+}
 
 # --- Instances ---
-resource "aws_instance" "nginx_instances" {
-    count = 2
-    ami = aws_ami_from_instance.nginx_ami.id
-    instance_type = "t3.micro"
-    subnet_id = element([aws_subnet.public_subnet_a.id, aws_subnet.public_subnet_b.id], count.index)
-    vpc_security_group_ids = [aws_security_group.web_sg.id]
-    key_name = "LS-AWS-IronhackKey"
-    associate_public_ip_address = true
-
-
-    tags = {
-        Name = "nginx-instance-LS-${count.index + 1}"
-    }
-}
-
-# Create the lb target group
-resource "aws_lb_target_group" "web_tg" {
-    name = "nginx-tg"
-    port = 80
-    protocol = "HTTP"
-    vpc_id = aws_vpc.main.id
-
-    health_check {
-        path = "/"
-        port = "80"
-    }
-}
-
-# Attach the instances to target group
-resource "aws_lb_target_group_attachment" "web_tg_attachment" {
-    count = length(aws_instance.nginx_instances)
-    target_group_arn = aws_lb_target_group.web_tg.arn
-    target_id = aws_instance.nginx_instances[count.index].id
-    port = 80
-}
-
-# Create the LB
-resource "aws_lb" "web_lb" {
-    name = "nginx-lb"
-    load_balancer_type = "application"
-    subnets = [aws_subnet.public_subnet_a.id, aws_subnet.public_subnet_b.id]
-    security_groups = [aws_security_group.web_sg.id]
-}
-
-#Listener to route HTTP traffic
-resource "aws_lb_listener" "web_listener" {
-    load_balancer_arn = aws_lb.web_lb.arn
-    port = 80
-    protocol = "HTTP"
-
-    default_action {
-        type = "forward"
-        target_group_arn = aws_lb_target_group.web_tg.arn
-    }
+# Bastion
+resource "aws_instance" "bastion" {
+  ami = var.ami_id
+  instance_type = "t3.micro"
+  subnet_id = aws_subnet.public_subnet.id
+  vpc_security_group_ids = [aws_security_group.sg_bastion.id]
+  key_name = var.access_key
 }
 

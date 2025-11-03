@@ -30,3 +30,23 @@ variable "subnet_private_db_cidr" {
     type = string
     default = "10.0.12.0/24"
 }
+
+# Image
+variable "ami_id" {
+    description = "Image for the instances"
+    type = string
+    default = "ami-0a71e3eb8b23101ed"
+}
+
+# Access key
+variable "access_key" {
+    description = "Access key to access AWS resources"
+    type = string
+    default = "none"
+}
+
+# My Ip
+variable "my_ip" {
+    type = string
+    default = "79.199.64.237/32"
+}
