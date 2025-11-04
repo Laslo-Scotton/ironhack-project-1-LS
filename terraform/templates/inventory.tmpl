@@ -1,0 +1,20 @@
+[bastion]
+bastion ansible_host=${bastion_public_ip} ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/LS-AWS_IronhackKey.pem
+
+[vote]
+vote ansible_host=${vote_private_ip} ansible_user=ubuntu
+
+[result]
+result ansible_host=${result_private_ip} ansible_user=ubuntu
+
+[worker]
+worker ansible_host=${worker_private_ip} ansible_user=ubuntu
+
+[redis]
+redis ansible_host=${redis_private_ip} ansible_user=ubuntu
+
+[db]
+db ansible_host=${db_private_ip} ansible_user=ubuntu
+
+[all:vars]
+ansible_ssh_common_args='-o ProxyJump=ubuntu@${bastion_public_ip} -i ~/.ssh/LS-AWS_IronhackKey.pem'
