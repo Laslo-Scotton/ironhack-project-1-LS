@@ -171,6 +171,10 @@ resource "aws_security_group" "sg_alb" {
     protocol = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
+
+  tags = {
+    Name = "LS-ALB-SG"
+  }
 }
 # SG VOTE
 resource "aws_security_group" "sg_vote" {
@@ -198,6 +202,10 @@ resource "aws_security_group" "sg_vote" {
     to_port   = 0
     protocol  = "-1"
     cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "LS-Vote-SG"
   }
 }
 # SG RESULT
@@ -227,6 +235,10 @@ resource "aws_security_group" "sg_result" {
     protocol  = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
+
+  tags = {
+    Name = "LS-Result-SG"
+  }
 }
 # SG WORKER
 resource "aws_security_group" "sg_worker" {
@@ -254,6 +266,10 @@ resource "aws_security_group" "sg_worker" {
     protocol  = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
+
+  tags = {
+    Name = "LS-Worker-SG"
+  }
 }
 # SG REDIS
 resource "aws_security_group" "sg_redis" {
@@ -276,6 +292,10 @@ resource "aws_security_group" "sg_redis" {
     to_port = 22
     protocol = "tcp"
     security_groups = [aws_security_group.sg_bastion.id]
+  }
+
+  tags = {
+    Name = "LS-Redis-SG"
   }
 }
 # SG DB
@@ -300,6 +320,10 @@ resource "aws_security_group" "sg_db" {
     protocol = "tcp"
     security_groups = [aws_security_group.sg_bastion.id]
   }
+
+  tags = {
+    Name = "LS-DB-SG"
+  }
 }
 # SG BASTION
 resource "aws_security_group" "sg_bastion" {
@@ -311,6 +335,17 @@ resource "aws_security_group" "sg_bastion" {
     to_port     = 22
     protocol    = "tcp"
     cidr_blocks = [var.my_ip]
+  }
+
+  egress {
+    from_port       = 0
+    to_port         = 0
+    protocol        = "-1"
+    cidr_blocks     = [aws_vpc.main.cidr_block] # or 0.0.0.0/0 for simplicity
+  }
+
+  tags = {
+    Name = "LS-Bastion-SG"
   }
 }
 
@@ -415,9 +450,9 @@ resource "aws_instance" "bastion" {
 resource "aws_instance" "vote" {
   ami = var.ami_id
   instance_type = "t3.micro"
-  subnet_id = aws_subnet.privat_subnet.id
+  subnet_id = aws_subnet.private_subnet.id
   vpc_security_group_ids = [aws_security_group.sg_vote.id]
-  key_name = var.access_key
+  key_name = var.internal_key
 
   tags = {
     Name = "vote-LS"
@@ -425,9 +460,53 @@ resource "aws_instance" "vote" {
 }
 
 # Result
+resource "aws_instance" "result" {
+  ami = var.ami_id
+  instance_type = "t3.micro"
+  subnet_id = aws_subnet.private_subnet.id
+  vpc_security_group_ids = [aws_security_group.sg_result.id]
+  key_name = var.internal_key
+
+  tags = {
+    Name = "result-LS"
+  }
+}
 
 # Redis
+resource "aws_instance" "redis" {
+  ami = var.ami_id
+  instance_type = "t3.micro"
+  subnet_id = aws_subnet.private_subnet.id
+  vpc_security_group_ids = [aws_security_group.sg_redis.id]
+  key_name = var.internal_key
+
+  tags = {
+    Name = "redis-LS"
+  }
+}
 
 # Worker
+resource "aws_instance" "worker" {
+  ami = var.ami_id
+  instance_type = "t3.micro"
+  subnet_id = aws_subnet.private_subnet.id
+  vpc_security_group_ids = [aws_security_group.sg_worker.id]
+  key_name = var.internal_key
+
+  tags = {
+    Name = "worker-LS"
+  }
+}
 
 # DB
+resource "aws_instance" "db" {
+  ami = var.ami_id
+  instance_type = "t3.micro"
+  subnet_id = aws_subnet.private_subnet_db.id
+  vpc_security_group_ids = [aws_security_group.sg_db.id]
+  key_name = var.internal_key
+
+  tags = {
+    Name = "DB-LS"
+  }
+}
