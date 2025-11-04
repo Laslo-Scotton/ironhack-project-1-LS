@@ -19,6 +19,13 @@ variable "subnet_public_cidr" {
     default = "10.0.4.0/24"
 }
 
+# DEV ONLY
+variable "subnet_public_cidr_2" {
+    description = "The subnets cidr block"
+    type = string
+    default = "10.0.128.0/24"
+}
+
 variable "subnet_private_cidr" {
     description = "The subnets cidr block"
     type = string
@@ -35,18 +42,30 @@ variable "subnet_private_db_cidr" {
 variable "ami_id" {
     description = "Image for the instances"
     type = string
-    default = "ami-0a71e3eb8b23101ed"
 }
 
-# Access key
+# Access keys
 variable "access_key" {
-    description = "Access key to access AWS resources"
+    description = "Access key to access AWS bastion"
     type = string
-    default = "none"
+}
+
+variable "internal_key" {
+    description = "Access key for bastion to other resources"
+    type = string
 }
 
 # My Ip
 variable "my_ip" {
     type = string
     default = "79.199.64.237/32"
+}
+
+# Subnet Regions
+variable "subnet_region_a" {
+    type = string
+}
+
+variable "subnet_region_b" {
+    type = string
 }

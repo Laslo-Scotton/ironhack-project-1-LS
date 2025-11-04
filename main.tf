@@ -26,17 +26,29 @@ resource "aws_subnet" "public_subnet" {
   vpc_id                  = aws_vpc.main.id
   cidr_block              = var.subnet_public_cidr
   map_public_ip_on_launch = true
-  # availability_zone       = var.subnet_region_a
+  availability_zone       = var.subnet_region_a
 
   tags = {
     Name = "public-subnet-LS"
   }
 }
 
+# DEV ONLY
+resource "aws_subnet" "public_subnet_2" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = var.subnet_public_cidr_2
+  map_public_ip_on_launch = true
+  availability_zone       = var.subnet_region_b
+
+  tags = {
+    Name = "public-subnet-LS-2az"
+  }
+}
+
 resource "aws_subnet" "private_subnet" {
   vpc_id                  = aws_vpc.main.id
   cidr_block              = var.subnet_private_cidr
-  # availability_zone       = var.subnet_region_b
+  availability_zone       = var.subnet_region_a
 
   tags = {
     Name = "private-subnet-LS"
@@ -46,7 +58,7 @@ resource "aws_subnet" "private_subnet" {
 resource "aws_subnet" "private_subnet_db" {
   vpc_id                  = aws_vpc.main.id
   cidr_block              = var.subnet_private_db_cidr
-  # availability_zone       = var.subnet_region_b
+  availability_zone       = var.subnet_region_a
 
   tags = {
     Name = "private-subnet-db-LS"
@@ -307,7 +319,7 @@ resource "aws_lb" "alb" {
   name = "alb-ls"
   internal = false
   load_balancer_type = "application"
-  subnets = [aws_subnet.public_subnet.id] # here also put other subnets when multi az
+  subnets = [aws_subnet.public_subnet.id, aws_subnet.public_subnet_2.id] # here also put other subnets when multi az
   security_groups = [aws_security_group.sg_alb.id]
 
   tags = {
@@ -327,7 +339,7 @@ resource "aws_lb_target_group" "tg_vote" {
 }
 
 resource "aws_lb_target_group" "tg_result" {
-  name     = "tg-vote"
+  name     = "tg-result"
   port     = 8081
   protocol = "HTTP"
   vpc_id   = aws_vpc.main.id
@@ -393,5 +405,29 @@ resource "aws_instance" "bastion" {
   subnet_id = aws_subnet.public_subnet.id
   vpc_security_group_ids = [aws_security_group.sg_bastion.id]
   key_name = var.access_key
+
+  tags = {
+    Name = "bastion-LS"
+  }
 }
 
+# Vote
+resource "aws_instance" "vote" {
+  ami = var.ami_id
+  instance_type = "t3.micro"
+  subnet_id = aws_subnet.privat_subnet.id
+  vpc_security_group_ids = [aws_security_group.sg_vote.id]
+  key_name = var.access_key
+
+  tags = {
+    Name = "vote-LS"
+  }
+}
+
+# Result
+
+# Redis
+
+# Worker
+
+# DB
