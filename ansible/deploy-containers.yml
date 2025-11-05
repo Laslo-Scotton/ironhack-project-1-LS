@@ -1,4 +1,3 @@
----
 # -------------------- DOCKER CONTAINERS PER HOST --------------------
 - name: Deploy containers
   hosts: all:!bastion
@@ -22,13 +21,12 @@
         image: scolas3/worker:latest
         env:
           REDIS_HOST: redis
-          DB_HOST: db
+          DB_HOST: "{{ hostvars['db']['ansible_host'] }}"
           DB_USERNAME: postgres
           DB_PASSWORD: postgres
           DB_NAME: postgres
-        extra_hosts:
-          - "redis:{{ hostvars['redis']['ansible_host'] }}"
-          - "db:{{ hostvars['db']['ansible_host'] }}"
+        etc_hosts:
+          redis: "{{ hostvars['redis']['ansible_host'] }}"
       vote:
         image: scolas3/vote:latest
         env:
@@ -38,12 +36,11 @@
       result:
         image: scolas3/result:latest
         env:
-          DB_HOST: db
-          DB_USERNAME: postgres
-          DB_PASSWORD: postgres
-          DB_NAME: postgres
-        extra_hosts:
-          - "db:{{ hostvars['db']['ansible_host'] }}"
+          PG_HOST: "{{ hostvars['db']['ansible_host'] }}"
+          PG_PORT: "5432"
+          PG_USER: "postgres"
+          PG_PASSWORD: "postgres"
+          PG_DATABASE: "postgres"
         ports:
           - "8081:80"
 
@@ -58,4 +55,5 @@
         env: "{{ containers_per_host[inventory_hostname].env | default({}) }}"
         ports: "{{ containers_per_host[inventory_hostname].ports | default([]) }}"
         volumes: "{{ containers_per_host[inventory_hostname].volumes | default([]) }}"
+        etc_hosts: "{{ containers_per_host[inventory_hostname].etc_hosts | default({}) }}"
         pull: yes
