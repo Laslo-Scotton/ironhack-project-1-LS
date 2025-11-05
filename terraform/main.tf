@@ -445,6 +445,7 @@ resource "aws_instance" "bastion" {
     Name = "bastion-LS"
   }
 
+/* --- The internal key gets copied automatically to the instance. Will be tested further sinc eit didnt work
   provisioner "file" {
     source      = "/home/laslo/myinternalkey/${var.internal_key}.pem"
     destination = "/home/ubuntu/.ssh/${var.internal_key}.pem"
@@ -469,6 +470,33 @@ resource "aws_instance" "bastion" {
       host        = self.public_ip
     }
   }
+  */
+
+  # This is for the same bastion key
+  provisioner "file" {
+    source      = "/home/laslo/.ssh/${var.access_key}.pem"
+    destination = "/home/ubuntu/.ssh/${var.access_key}.pem"
+
+    connection {
+      type        = "ssh"
+      user        = "ubuntu"
+      private_key = file("/home/laslo/.ssh/${var.access_key}.pem")
+      host        = self.public_ip
+    }
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "chmod 600 /home/ubuntu/.ssh/${var.access_key}.pem"
+    ]
+
+    connection {
+      type        = "ssh"
+      user        = "ubuntu"
+      private_key = file("/home/laslo/.ssh/${var.access_key}.pem")
+      host        = self.public_ip
+    }
+  }
 }
 
 # Vote
@@ -477,7 +505,7 @@ resource "aws_instance" "vote" {
   instance_type = "t3.micro"
   subnet_id = aws_subnet.private_subnet.id
   vpc_security_group_ids = [aws_security_group.sg_vote.id]
-  key_name = var.internal_key
+  key_name = var.access_key
 
   tags = {
     Name = "vote-LS"
@@ -490,7 +518,7 @@ resource "aws_instance" "result" {
   instance_type = "t3.micro"
   subnet_id = aws_subnet.private_subnet.id
   vpc_security_group_ids = [aws_security_group.sg_result.id]
-  key_name = var.internal_key
+  key_name = var.access_key
 
   tags = {
     Name = "result-LS"
@@ -503,7 +531,7 @@ resource "aws_instance" "redis" {
   instance_type = "t3.micro"
   subnet_id = aws_subnet.private_subnet.id
   vpc_security_group_ids = [aws_security_group.sg_redis.id]
-  key_name = var.internal_key
+  key_name = var.access_key
 
   tags = {
     Name = "redis-LS"
@@ -516,7 +544,7 @@ resource "aws_instance" "worker" {
   instance_type = "t3.micro"
   subnet_id = aws_subnet.private_subnet.id
   vpc_security_group_ids = [aws_security_group.sg_worker.id]
-  key_name = var.internal_key
+  key_name = var.access_key
 
   tags = {
     Name = "worker-LS"
@@ -529,7 +557,7 @@ resource "aws_instance" "db" {
   instance_type = "t3.micro"
   subnet_id = aws_subnet.private_subnet_db.id
   vpc_security_group_ids = [aws_security_group.sg_db.id]
-  key_name = var.internal_key
+  key_name = var.access_key
 
   tags = {
     Name = "DB-LS"
