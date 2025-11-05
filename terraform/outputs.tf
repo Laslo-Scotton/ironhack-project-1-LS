@@ -6,6 +6,8 @@ resource "local_file" "ansible_inventory" {
     worker_private_ip = aws_instance.worker.private_ip
     redis_private_ip  = aws_instance.redis.private_ip
     db_private_ip     = aws_instance.db.private_ip
+    access_key        = var.access_key
+    internal_key      = var.internal_key
   })
   filename = "${path.module}/../ansible/inventory.ini"
 }
@@ -18,5 +20,7 @@ output "inventory" {
     worker_private_ip = aws_instance.worker.private_ip
     redis_private_ip  = aws_instance.redis.private_ip
     db_private_ip     = aws_instance.db.private_ip
+    access_key        = var.access_key
+    internal_key      = var.internal_key
   })
 }

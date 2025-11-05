@@ -1,18 +1,51 @@
 ---
-- name: Install Docker
+- name: Install Docker 
   hosts: all
-  become: true
-  vars_files:
-    - vars.yml
-  tasks:
-    - name: Install apache2 package
-      apt:
-        name: "{{ package_name }}"
-        state: present
-        update_cache: true
+  become: yes
+  vars:
+    docker_packages:
+      - ca-certificates
+      - curl
+      - gnupg
+      - lsb-release
 
-    - name: Start and enable apache2 service
-      service:
-        name: "{{ package_name }}"
+  tasks:
+    - name: Ensure required packages are installed
+      apt:
+        name: "{{ docker_packages }}"
+        state: present
+        update_cache: yes
+
+    - name: Add Docker’s official GPG key
+      ansible.builtin.shell: |
+        install -m 0755 -d /etc/apt/keyrings
+        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+        chmod a+r /etc/apt/keyrings/docker.gpg
+      args:
+        creates: /etc/apt/keyrings/docker.gpg
+
+    - name: Add Docker repository
+      ansible.builtin.shell: |
+        echo \
+        "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
+        https://download.docker.com/linux/ubuntu \
+        $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+      args:
+        creates: /etc/apt/sources.list.d/docker.list
+
+    - name: Install Docker Engine
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+        state: present
+        update_cache: yes
+
+    - name: Ensure Docker is started and enabled
+      systemd:
+        name: docker
         state: started
-        enabled: true
+        enabled: yes

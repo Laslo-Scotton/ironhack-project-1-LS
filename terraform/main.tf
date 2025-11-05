@@ -444,6 +444,31 @@ resource "aws_instance" "bastion" {
   tags = {
     Name = "bastion-LS"
   }
+
+  provisioner "file" {
+    source      = "/home/laslo/myinternalkey/${var.internal_key}.pem"
+    destination = "/home/ubuntu/.ssh/${var.internal_key}.pem"
+
+    connection {
+      type        = "ssh"
+      user        = "ubuntu"
+      private_key = file("/home/laslo/.ssh/${var.access_key}.pem")
+      host        = self.public_ip
+    }
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "chmod 600 /home/ubuntu/.ssh/${var.internal_key}.pem"
+    ]
+
+    connection {
+      type        = "ssh"
+      user        = "ubuntu"
+      private_key = file("/home/laslo/.ssh/${var.access_key}.pem")
+      host        = self.public_ip
+    }
+  }
 }
 
 # Vote
