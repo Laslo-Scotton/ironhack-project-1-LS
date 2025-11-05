@@ -1,7 +1,8 @@
 ---
-- name: Install Docker 
-  hosts: all
+- name: Install Docker on all servers (except bastion)
+  hosts: all:!bastion
   become: yes
+
   vars:
     docker_packages:
       - ca-certificates
@@ -10,31 +11,26 @@
       - lsb-release
 
   tasks:
-    - name: Ensure required packages are installed
-      apt:
+    - name: Ensure apt packages required for Docker are installed
+      ansible.builtin.apt:
         name: "{{ docker_packages }}"
         state: present
         update_cache: yes
 
-    - name: Add Docker’s official GPG key
-      ansible.builtin.shell: |
-        install -m 0755 -d /etc/apt/keyrings
-        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-        chmod a+r /etc/apt/keyrings/docker.gpg
-      args:
-        creates: /etc/apt/keyrings/docker.gpg
+    - name: Add Docker's official GPG key
+      ansible.builtin.apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        keyring: /etc/apt/keyrings/docker.gpg
+        state: present
 
-    - name: Add Docker repository
-      ansible.builtin.shell: |
-        echo \
-        "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
-        https://download.docker.com/linux/ubuntu \
-        $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
-      args:
-        creates: /etc/apt/sources.list.d/docker.list
+    - name: Add Docker APT repository
+      ansible.builtin.apt_repository:
+        repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+        state: present
+        filename: docker
 
-    - name: Install Docker Engine
-      apt:
+    - name: Install Docker Engine and dependencies
+      ansible.builtin.apt:
         name:
           - docker-ce
           - docker-ce-cli
@@ -44,8 +40,8 @@
         state: present
         update_cache: yes
 
-    - name: Ensure Docker is started and enabled
-      systemd:
+    - name: Ensure Docker service is running and enabled
+      ansible.builtin.systemd:
         name: docker
         state: started
         enabled: yes

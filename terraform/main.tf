@@ -124,11 +124,10 @@ resource "aws_route_table" "private_rt" {
 resource "aws_route_table" "private_db_rt" {
   vpc_id = aws_vpc.main.id
 
-  # No Internet access for the DB route table
-  # route {
-  #   cidr_block = "0.0.0.0/0"
-  #   nat_gateway_id = aws_nat_gateway.main_nat.id
-  # }
+  route {
+    cidr_block = "0.0.0.0/0"
+    nat_gateway_id = aws_nat_gateway.main_nat.id
+  }
 
   tags = {
     Name = "private-db-rt-LS"
@@ -246,20 +245,13 @@ resource "aws_security_group" "sg_worker" {
   vpc_id = aws_vpc.main.id
 
   ingress {
-      description = "Allow access from ALB Sg"
-      from_port = 8081
-      to_port = 8081
-      protocol = "tcp"
-      security_groups = [aws_security_group.sg_alb.id]
-  }
-
-  ingress {
     description = "Allow ssh from Bastion"
     from_port = 22
     to_port = 22
     protocol = "tcp"
     security_groups = [aws_security_group.sg_bastion.id]
   }
+
   egress {
     from_port = 0
     to_port   = 0
@@ -294,6 +286,13 @@ resource "aws_security_group" "sg_redis" {
     security_groups = [aws_security_group.sg_bastion.id]
   }
 
+  egress {
+    from_port = 0
+    to_port   = 0
+    protocol  = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
   tags = {
     Name = "LS-Redis-SG"
   }
@@ -319,6 +318,13 @@ resource "aws_security_group" "sg_db" {
     to_port = 22
     protocol = "tcp"
     security_groups = [aws_security_group.sg_bastion.id]
+  }
+
+  egress {
+    from_port = 0
+    to_port   = 0
+    protocol  = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   tags = {
@@ -402,7 +408,7 @@ resource "aws_lb_listener" "http" {
 # --- Load Balancer Listener Rules ---
 resource "aws_lb_listener_rule" "vote_rule" {
   listener_arn = aws_lb_listener.http.arn
-  priority = 20
+  priority = 40
 
   action {
     type = "forward"
@@ -411,26 +417,40 @@ resource "aws_lb_listener_rule" "vote_rule" {
 
   condition {
     path_pattern {
-      values = ["/vote*"]
+      values = ["/*"]
     }
   }
 }
 
 resource "aws_lb_listener_rule" "result_rule" {
   listener_arn = aws_lb_listener.http.arn
-  priority = 40
+  priority = 20
 
   action {
     type = "forward"
     target_group_arn = aws_lb_target_group.tg_result.arn
   }
-
+  
   condition {
     path_pattern {
-      values = ["/result*"]
+      values = ["/result*","/results*"]
     }
   }
 }
+
+# --- Attach instances to target group ---
+resource "aws_lb_target_group_attachment" "vote_attachment"{
+  target_group_arn = aws_lb_target_group.tg_vote.arn
+  target_id = aws_instance.vote.id
+  port = 8080
+}
+
+resource "aws_lb_target_group_attachment" "result_attachment"{
+  target_group_arn = aws_lb_target_group.tg_result.arn
+  target_id = aws_instance.result.id
+  port = 8081
+}
+
 
 # --- Instances ---
 # Bastion
